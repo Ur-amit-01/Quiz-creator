@@ -25,11 +25,12 @@ _MAX_PREFIX_LEN = len(f"{QUIZ_BATCH_SIZE}. ")
 _MAX_SUFFIX_LEN = len(" (YYYY)")
 QUESTION_TEXT_LIMIT = POLL_QUESTION_LIMIT - _MAX_PREFIX_LEN - _MAX_SUFFIX_LEN
 
-SECONDS_BETWEEN_POLLS = 3  # be nice to Telegram's flood limits
+SECONDS_BETWEEN_POLLS = 1  # be nice to Telegram's flood limits
 
 RESULTS_PROMPT = (
     "10 me se kitne correct kiye ? Aur kal 10 baje ready rahna quiz ke liye"
 )
+QUIZ_STICKER_ID = "CAACAgEAAxkBAAEGNvVqg1PaFB1WK3Nowc3dIyvtX7a0UwACMRQAApO-0wWgdFhBELv-6D0E"
 
 class _PollOpt:
     """
@@ -107,6 +108,8 @@ async def quiz_command(client: Client, message: Message):
                 open_period=600,  # seconds the poll stays open; drop this line for no timer
             )
             posted += 1
+
+            await client.send_sticker(chat_id=CHANNEL_ID, sticker=QUIZ_STICKER_ID)
 
             if i < len(quiz_questions):
                 await asyncio.sleep(SECONDS_BETWEEN_POLLS)
