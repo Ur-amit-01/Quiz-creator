@@ -11,9 +11,20 @@ from config import API_ID, API_HASH, BOT_TOKEN, ADMINS, CHANNEL_ID
 from Questions import ALL_QUESTIONS, get_random_quiz
 
 QUIZ_BATCH_SIZE = 10
-# Telegram poll question limit is 300 chars; leave room for the "N. " prefix
-# and " (YYYY)" suffix we add around the raw question text.
-POLL_QUESTION_LIMIT = 300
+# Telegram's documented poll question limit is 300 chars, but in practice
+# (pyrofork 2.3.68 / current Bot API) anything much over ~255 comes back
+# as [400 MESSAGE_TOO_LONG], so stay well under it.
+POLL_QUESTION_LIMIT = 255
+POLL_OPTION_LIMIT = 100
+
+# Room left for the raw question text once the "N. " prefix and " (YYYY)"
+# suffix are added. Worst case prefix is "10. " (4 chars) and suffix is
+# always " (YYYY)" (7 chars), so budget for the worst case up front —
+# questions longer than this are skipped, never truncated.
+_MAX_PREFIX_LEN = len(f"{QUIZ_BATCH_SIZE}. ")
+_MAX_SUFFIX_LEN = len(" (YYYY)")
+QUESTION_TEXT_LIMIT = POLL_QUESTION_LIMIT - _MAX_PREFIX_LEN - _MAX_SUFFIX_LEN
+
 SECONDS_BETWEEN_POLLS = 3  # be nice to Telegram's flood limits
 
 RESULTS_PROMPT = (
@@ -43,17 +54,8 @@ def _poll_options(options):
 
 def _format_poll_question(index: int, q: dict) -> str:
     """'S.no (question) (Year)' formatted as e.g. '1. Question text (2019)'."""
-    suffix = f" ({q['year']})"
-    prefix = f"{index}. "
-    question_text = q["question"]
+    return f"{index}. {q['question']} ({q['year']})"
 
-    room = POLL_QUESTION_LIMIT - len(prefix) - len(suffix)
-    if room < 0:
-        room = 0
-    if len(question_text) > room:
-        question_text = question_text[: max(room - 1, 0)].rstrip() + "…"
-
-    return f"{prefix}{question_text}{suffix}"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,7 +87,11 @@ app = Client(
 @app.on_message(filters.command("quiz") & filters.user(ADMINS))
 async def quiz_command(client: Client, message: Message):
     """Admin-only. Posts a batch of 10 random quiz polls (random years) to CHANNEL_ID."""
-    quiz_questions = get_random_quiz(QUIZ_BATCH_SIZE)
+    quiz_questions = get_random_quiz(
+        QUIZ_BATCH_SIZE,
+        max_question_len=QUESTION_TEXT_LIMIT,
+        max_option_len=POLL_OPTION_LIMIT,
+    )
 
     posted = 0
     try:
@@ -98,7 +104,7 @@ async def quiz_command(client: Client, message: Message):
                 correct_option_id=q["correct_option_id"],
                 explanation=q.get("explanation"),
                 is_anonymous=True,
-                open_period=60,  # seconds the poll stays open; drop this line for no timer
+                open_period=600,  # seconds the poll stays open; drop this line for no timer
             )
             posted += 1
 
@@ -132,4 +138,4 @@ if __name__ == "__main__":
     from Questions import YEARS
     logger.info(f"Loaded {len(ALL_QUESTIONS)} questions across {len(YEARS)} years ({YEARS[0]}-{YEARS[-1]}).")
     app.run()
-    
+
