@@ -5,7 +5,7 @@ import sys
 from pyrogram import Client, filters
 from pyrogram.enums import PollType
 from pyrogram.errors import FloodWait
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 import config
 from config import API_ID, API_HASH, BOT_TOKEN, ADMINS, CHANNEL_ID
@@ -45,6 +45,19 @@ RESULTS_PROMPT = (
 
     "<blockquote><b>⏰ Milte hain kal subah 10 baje next quiz mein!</b>\n"
     "<b>➜ Ready rehna! 📚🔥</b></blockquote>"
+)
+
+# TODO: replace these placeholders with your real links before deploying.
+BACKUP_URL = "https://t.me/Hustler_Vault"
+STUDY_BOT_URL = "https://t.me/MBBS_Pagluu_bot"
+
+RESULTS_KEYBOARD = InlineKeyboardMarkup(
+    [
+        [
+            InlineKeyboardButton("📦 Backup", url=BACKUP_URL),
+            InlineKeyboardButton("📚 Study Material Bot", url=STUDY_BOT_URL),
+        ]
+    ]
 )
 
 QUIZ_STICKER_ID = "CAACAgEAAxkBAAEGNvVqg1PaFB1WK3Nowc3dIyvtX7a0UwACMRQAApO-0wWgdFhBELv-6D0E"
@@ -139,7 +152,7 @@ async def quiz_command(client: Client, message: Message):
                 correct_option_id=q["correct_option_id"],
                 explanation=q.get("explanation"),
                 is_anonymous=True,
-                open_period=600,  # seconds the poll stays open; drop this line for no timer
+                open_period=86400,  # seconds the poll stays open; drop this line for no timer
             )
             posted += 1
             await asyncio.sleep(SECONDS_BETWEEN_MESSAGES)
@@ -154,7 +167,10 @@ async def quiz_command(client: Client, message: Message):
                 await asyncio.sleep(SECONDS_BETWEEN_MESSAGES)
 
         await _send_with_flood_retry(
-            client.send_message, chat_id=CHANNEL_ID, text=RESULTS_PROMPT
+            client.send_message,
+            chat_id=CHANNEL_ID,
+            text=RESULTS_PROMPT,
+            reply_markup=RESULTS_KEYBOARD,
         )
         await message.reply_text(f"✅ Posted {posted} quiz question(s) to the channel.")
     except Exception as e:
@@ -170,7 +186,7 @@ async def quiz_command_denied(client: Client, message: Message):
     await message.reply_text("⛔ Only admins can run /quiz.")
 
 
-@app.on_message(filters.command("start") & filters.private)
+@app.on_message(filters.command("start") & ~filters.user(ADMINS))
 async def start_command(client: Client, message: Message):
     await message.reply_text(
         "Quiz bot online.\nAdmins: send /quiz to post a random quiz poll to the channel."
@@ -182,4 +198,4 @@ if __name__ == "__main__":
     from Questions import YEARS
     logger.info(f"Loaded {len(ALL_QUESTIONS)} questions across {len(YEARS)} years ({YEARS[0]}-{YEARS[-1]}).")
     app.run()
-
+    
