@@ -11,7 +11,7 @@ import config
 from config import API_ID, API_HASH, BOT_TOKEN, ADMINS, CHANNEL_ID
 from Questions import ALL_QUESTIONS, get_random_quiz
 
-QUIZ_BATCH_SIZE = 10
+QUIZ_BATCH_SIZE = 15
 # Telegram's documented poll question limit is 300 chars, but in practice
 # (pyrofork 2.3.68 / current Bot API) anything much over ~255 comes back
 # as [400 MESSAGE_TOO_LONG], so stay well under it.
@@ -34,8 +34,19 @@ QUESTION_TEXT_LIMIT = POLL_QUESTION_LIMIT - _MAX_PREFIX_LEN - _MAX_SUFFIX_LEN
 SECONDS_BETWEEN_MESSAGES = 3
 
 RESULTS_PROMPT = (
-    "10 me se kitne correct kiye ? Aur kal 10 baje ready rahna quiz ke liye"
+    "<blockquote><b>➤ Chalo, ab batao 👀</b>\n"
+    "<b>➤ 15 mein se kitne questions correct hue? ❕</b></blockquote>\n\n"
+
+    "<blockquote><b>➜ Score kam bhi hua toh koi baat nahi ❤️</b>\n"
+    "<b>➜ Next time aur better karenge! 💪</b></blockquote>\n\n"
+
+    "<blockquote><b>💬 Koi doubt ya pareshani ho?</b>\n"
+    "<b>➜ Apne bhai ko yaad kar lena 👉🏻 @im_ofc ❤️</b></blockquote>\n\n"
+
+    "<blockquote><b>⏰ Milte hain kal subah 10 baje next quiz mein!</b>\n"
+    "<b>➜ Ready rehna! 📚🔥</b></blockquote>"
 )
+
 QUIZ_STICKER_ID = "CAACAgEAAxkBAAEGNvVqg1PaFB1WK3Nowc3dIyvtX7a0UwACMRQAApO-0wWgdFhBELv-6D0E"
 
 class _PollOpt:
