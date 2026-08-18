@@ -29,7 +29,7 @@ ADMINS = _as_id_list(os.environ.get("ADMINS", "7150972327"))
 # The channel the bot posts quiz polls into. The bot MUST be an admin there
 # with "Post messages" rights. Accepts a numeric id (e.g. -1001234567890)
 # or a public @username.
-CHANNEL_ID_RAW = os.environ.get("CHANNEL_ID", "-1004419850758")
+CHANNEL_ID_RAW = os.environ.get("CHANNEL_ID", "-1003635200719")
 CHANNEL_ID = (
     int(CHANNEL_ID_RAW) if id_pattern.match(CHANNEL_ID_RAW) else CHANNEL_ID_RAW
 )
