@@ -4,6 +4,7 @@ import sys
 
 from pyrogram import Client, filters
 from pyrogram.enums import PollType
+from pyrogram.errors import FloodWait
 from pyrogram.types import Message
 
 import config
@@ -26,7 +27,11 @@ _MAX_PREFIX_LEN = len(f"{QUIZ_BATCH_SIZE}. ")
 _MAX_SUFFIX_LEN = len(" (YYYY)")
 QUESTION_TEXT_LIMIT = POLL_QUESTION_LIMIT - _MAX_PREFIX_LEN - _MAX_SUFFIX_LEN
 
-SECONDS_BETWEEN_POLLS = 3  # be nice to Telegram's flood limits
+# Sending a poll + a sticker back-to-back, 10 times, is 20 messages in
+# quick succession — enough to trip Telegram's per-chat flood limit.
+# Space each *message* out (not just each question) and, on top of that,
+# transparently retry if Telegram still asks us to wait.
+SECONDS_BETWEEN_MESSAGES = 3
 
 RESULTS_PROMPT = (
     "10 me se kitne correct kiye ? Aur kal 10 baje ready rahna quiz ke liye"
@@ -57,6 +62,21 @@ def _poll_options(options):
 def _format_poll_question(index: int, q: dict) -> str:
     """'S.no (question) (Year)' formatted as e.g. '1. Question text (2019)'."""
     return f"{index}. {q['question']} ({q['year']})"
+
+
+async def _send_with_flood_retry(coro_func, *args, **kwargs):
+    """
+    Call coro_func(*args, **kwargs) and, if Telegram replies with
+    FLOOD_WAIT, sleep for the requested time and retry automatically
+    instead of bubbling the error up and aborting the whole batch.
+    """
+    while True:
+        try:
+            return await coro_func(*args, **kwargs)
+        except FloodWait as e:
+            wait_for = e.value + 1  # small buffer on top of what Telegram asked for
+            logger.warning(f"Flood wait hit, sleeping {wait_for}s before retrying")
+            await asyncio.sleep(wait_for)
 
 
 logging.basicConfig(
@@ -99,7 +119,8 @@ async def quiz_command(client: Client, message: Message):
     posted = 0
     try:
         for i, q in enumerate(quiz_questions, start=1):
-            await client.send_poll(
+            await _send_with_flood_retry(
+                client.send_poll,
                 chat_id=CHANNEL_ID,
                 question=_format_poll_question(i, q),
                 options=_poll_options(q["options"]),
@@ -107,16 +128,23 @@ async def quiz_command(client: Client, message: Message):
                 correct_option_id=q["correct_option_id"],
                 explanation=q.get("explanation"),
                 is_anonymous=True,
-                open_period=60,  # seconds the poll stays open; drop this line for no timer
+                open_period=600,  # seconds the poll stays open; drop this line for no timer
             )
             posted += 1
+            await asyncio.sleep(SECONDS_BETWEEN_MESSAGES)
 
-            await client.send_sticker(chat_id=CHANNEL_ID, sticker=QUIZ_STICKER_ID)
+            await _send_with_flood_retry(
+                client.send_sticker,
+                chat_id=CHANNEL_ID,
+                sticker=QUIZ_STICKER_ID,
+            )
 
             if i < len(quiz_questions):
-                await asyncio.sleep(SECONDS_BETWEEN_POLLS)
+                await asyncio.sleep(SECONDS_BETWEEN_MESSAGES)
 
-        await client.send_message(chat_id=CHANNEL_ID, text=RESULTS_PROMPT)
+        await _send_with_flood_retry(
+            client.send_message, chat_id=CHANNEL_ID, text=RESULTS_PROMPT
+        )
         await message.reply_text(f"✅ Posted {posted} quiz question(s) to the channel.")
     except Exception as e:
         logger.exception("Failed to post quiz")
