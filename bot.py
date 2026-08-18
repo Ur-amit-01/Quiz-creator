@@ -16,6 +16,7 @@ QUIZ_BATCH_SIZE = 10
 # as [400 MESSAGE_TOO_LONG], so stay well under it.
 POLL_QUESTION_LIMIT = 255
 POLL_OPTION_LIMIT = 100
+POLL_EXPLANATION_LIMIT = 200  # Telegram's hard cap on poll explanation text
 
 # Room left for the raw question text once the "N. " prefix and " (YYYY)"
 # suffix are added. Worst case prefix is "10. " (4 chars) and suffix is
@@ -25,7 +26,7 @@ _MAX_PREFIX_LEN = len(f"{QUIZ_BATCH_SIZE}. ")
 _MAX_SUFFIX_LEN = len(" (YYYY)")
 QUESTION_TEXT_LIMIT = POLL_QUESTION_LIMIT - _MAX_PREFIX_LEN - _MAX_SUFFIX_LEN
 
-SECONDS_BETWEEN_POLLS = 1  # be nice to Telegram's flood limits
+SECONDS_BETWEEN_POLLS = 3  # be nice to Telegram's flood limits
 
 RESULTS_PROMPT = (
     "10 me se kitne correct kiye ? Aur kal 10 baje ready rahna quiz ke liye"
@@ -92,6 +93,7 @@ async def quiz_command(client: Client, message: Message):
         QUIZ_BATCH_SIZE,
         max_question_len=QUESTION_TEXT_LIMIT,
         max_option_len=POLL_OPTION_LIMIT,
+        max_explanation_len=POLL_EXPLANATION_LIMIT,
     )
 
     posted = 0
@@ -105,7 +107,7 @@ async def quiz_command(client: Client, message: Message):
                 correct_option_id=q["correct_option_id"],
                 explanation=q.get("explanation"),
                 is_anonymous=True,
-                open_period=600,  # seconds the poll stays open; drop this line for no timer
+                open_period=60,  # seconds the poll stays open; drop this line for no timer
             )
             posted += 1
 
